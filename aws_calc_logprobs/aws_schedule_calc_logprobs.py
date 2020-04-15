@@ -66,7 +66,7 @@ if __name__ == "__main__":
         local_folder=f"{home_path}/SeqDesignScheduling/aws_calc_logprobs/",
         s3_folder="scheduling/aws_calc_logprobs/",
         destination='s3',
-        args=("--exclude", "'*.py'"),
+        args=("--exclude", '"*.py"'),
     )
 
     if args.script is None:
