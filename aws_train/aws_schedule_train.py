@@ -19,7 +19,8 @@ userdata_template = f"""#!/bin/bash
 su {USERNAME} -c '
 git clone -b v3 https://github.com/debbiemarkslab/SeqDesign.git {seqdesign_path}
 {env_bin_path}/pip install gitpython
-{env_bin_path}/python {seqdesign_path}/setup.py install
+cd {seqdesign_path}
+{env_bin_path}/python setup.py install
 mkdir -p {seqdesign_run_path}
 '
 cd {seqdesign_run_path}
