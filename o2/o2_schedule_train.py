@@ -10,6 +10,8 @@ parser.add_argument('params', type=str, nargs='+', default=[], help="File(s) wit
 parser.add_argument("--gpu-type", type=str, default=None, metavar='TYPE',
                     help="GPU type (leave blank for no preference)")
 parser.add_argument("--dry-run", action='store_true', help="Perform a dry run")
+parser.add_argument("--s3-path", type=str, default='s3://markslab-private/seqdesign',
+                    help="Base s3:// SeqDesign path")
 parser.add_argument("--run-version", type=str, default='v3', metavar='V',
                     help="Current run version (e.g. v2, v3, etc.).")
 args = parser.parse_args()
@@ -25,7 +27,7 @@ sbatch_template = f"""#!/bin/bash
 #SBATCH -o {seqdesign_path}/slurm/slurm_%j_{{name}}.out
 
 cd {seqdesign_path}
-{env_bin_path}/python run_autoregressive_fr.py {{params}}
+{env_bin_path}/python seqdesign/scripts/run_autoregressive_fr.py {{params}}
 """
 
 if args.params is None:
@@ -47,8 +49,9 @@ else:
                     continue
                 name = fname.split('/')[-1]
                 name = name[:name.rfind('.')]
+                line = f"{line.strip()} --s3-path {args.s3_path}"
                 names.append(f'{name}_{i}')
-                param_strings.append(line.strip())
+                param_strings.append(line)
 
 os.makedirs('sbatch', exist_ok=True)
 for name, param_string in zip(names, param_strings):

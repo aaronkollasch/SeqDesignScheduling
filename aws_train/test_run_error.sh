@@ -1,1 +1,0 @@
-python run_autoregressive_fr.py --dataset test_asdf_dne_BLAT_ECOLX_1 --channels 8 --r-seed 11 --num-iterations 102 --snapshot-interval 50

@@ -1,0 +1,3 @@
+--dataset dataset_here --channels 48 --r-seed 11
+--dataset dataset_here --channels 48 --r-seed 22
+--dataset dataset_here --channels 48 --r-seed 33

@@ -6,47 +6,40 @@ import argparse
 
 CONDA_ENV = "tensorflow_p36"
 USERNAME = "ubuntu"
-SEQDESIGN_FOLDER = "AutoregressiveProteinModels"
+SEQDESIGN_FOLDER = "SeqDesign"
+CALC_LOGPROBS_EXE = "calc_logprobs_seqs_fr"
 AWS_REGION = 'us-west-2'
 POWEROFF_TIME = 1  # number of minutes to wait after completion before terminating the instance
 
-parser = argparse.ArgumentParser(description="Calculate the log probability of mutated sequences.")
-parser.add_argument('script', type=str, nargs='+', default=[], help="Script(s) to schedule on new instances")
-parser.add_argument("--instance-type", type=str, default='p2.xlarge', metavar='TYPE',
-                    help="AWS instance type (e.g. p2.xlarge)")
-parser.add_argument("--split-lines", action='store_true', help="Run every line in a separate instance")
-parser.add_argument("--dry-run", action='store_true', help="Perform a dry run")
-parser.add_argument("--run-version", type=str, default='v3', metavar='V',
-                    help="Current run version (e.g. v2, v3, etc.).")
-args = parser.parse_args()
-
 home_path = f"/home/{USERNAME}"
 seqdesign_path = f"{home_path}/{SEQDESIGN_FOLDER}"
+seqdesign_run_path = f"{seqdesign_path}/run/calc_logprobs"
 env_bin_path = f"{home_path}/anaconda3/envs/{CONDA_ENV}/bin"
 userdata_template = f"""#!/bin/bash
-git config --system credential.helper '!aws codecommit credential-helper $@'
-git config --system credential.UseHttpPath true
-git clone https://git-codecommit.us-west-2.amazonaws.com/v1/repos/SeqDesignAR {seqdesign_path}
-chown -R {USERNAME}:{USERNAME} {seqdesign_path}
-su {USERNAME} -c '{env_bin_path}/pip install gitpython'
-cd {seqdesign_path}/calc_logprobs
+su {USERNAME} -c '
+git clone -b v3 https://github.com/debbiemarkslab/SeqDesign.git {seqdesign_path}
+{env_bin_path}/pip install gitpython
+{env_bin_path}/python {seqdesign_path}/setup.py install
+mkdir -p {seqdesign_run_path}
+'
+cd {seqdesign_run_path}
 echo '#!/bin/bash
 source activate {CONDA_ENV}
-cd {seqdesign_path}/calc_logprobs
+cd {seqdesign_run_path}
 EXIT_STATUS=0
 {{run_strings}}
 if [ $EXIT_STATUS -ne 0 ]; then
     echo "Error detected. Syncing all logs to S3."
-    aws s3 sync {seqdesign_path}/log/ s3://markslab-private/autoregressive/{args.run_version}/log/_failed_jobs/
+    aws s3 sync {seqdesign_run_path}/log/ {{s3_path}}/{{run_version}}/log/_failed_jobs/
 fi
 echo "Shutting down in {POWEROFF_TIME} minutes, press Ctrl-C to interrupt."
 sleep {POWEROFF_TIME * 60} && sudo poweroff
 ' > run.sh
 chown {USERNAME}:{USERNAME} run.sh
 chmod +x run.sh
-su - {USERNAME} -c "cd {seqdesign_path}/calc_logprobs
+su - {USERNAME} -c "cd {seqdesign_run_path}
 tmux new-session -s calc -d -n 'calc' 'bash'
-tmux pipe-pane -o 'cat >> {seqdesign_path}/log/tmux-output.#h.txt'
+tmux pipe-pane -o 'cat >> {seqdesign_run_path}/log/tmux-output.#h.txt'
 tmux send -t calc.0 './run.sh' ENTER
 "
 """
@@ -54,15 +47,32 @@ tmux send -t calc.0 './run.sh' ENTER
 if __name__ == "__main__":
     sys.path.append(seqdesign_path)
     import aws_utils
-    aws_utils.aws_s3_sync(
-        local_folder=f"{seqdesign_path}/scheduling/aws_calc_logprobs/", s3_folder="scheduling/aws_calc_logprobs/", destination='s3'
+
+    parser = argparse.ArgumentParser(description="Calculate the log probability of mutated sequences.")
+    parser.add_argument('script', type=str, nargs='+', default=[], help="Script(s) to schedule on new instances")
+    parser.add_argument("--instance-type", type=str, default='p2.xlarge', metavar='TYPE',
+                        help="AWS instance type (e.g. p2.xlarge)")
+    parser.add_argument("--split-lines", action='store_true', help="Run every line in a separate instance")
+    parser.add_argument("--dry-run", action='store_true', help="Perform a dry run")
+    parser.add_argument("--s3-path", type=str, default='s3://markslab-private/seqdesign',
+                        help="Base s3:// SeqDesign path")
+    parser.add_argument("--run-version", type=str, default='v3', metavar='V',
+                        help="Current run version (e.g. v2, v3, etc.).")
+    args = parser.parse_args()
+
+    aws_util = aws_utils.AWSUtility(s3_base_path=args.s3_path)
+    aws_util.s3_sync(
+        local_folder=f"{home_path}/SeqDesignScheduling/aws_calc_logprobs/",
+        s3_folder="scheduling/aws_calc_logprobs/",
+        destination='s3',
+        args=("--exclude", "'*.py'"),
     )
 
     if args.script is None:
         names = ["test_scheduler"]
         run_strings = [
-            "python calc_logprobs_seqs_fr.py --sess test_BLAT_ECOLX_1_v3_channels-8_rseed-11_20Mar11_1017PM "
-            "--channels 8 --r-seed 11 --num-iterations 102 --snapshot-interval 50"
+            "--sess test_BLAT_ECOLX_1_v3_channels-8_rseed-11_20Mar11_1017PM "
+            "--channels 8 --r-seed 11 --num-iterations 102 --snapshot-interval 50 "
         ]
         print("Usage: aws_schedule_calc_logprobs.py [script1] [script2] ...")
         print("Running test in 5 seconds (Press Ctrl-C to cancel).")
@@ -91,17 +101,24 @@ if __name__ == "__main__":
         print(f"Launching instance {name} with commands:")
         print(run_string)
         run_string = '\n'.join([
-            f"{line.strip()} || EXIT_STATUS=$?"
+            f"{CALC_LOGPROBS_EXE} {line.strip()} --s3-path {args.s3_path} || EXIT_STATUS=$?"
             for line in run_string.splitlines(keepends=False)
             if line.strip()
         ])
-        userdata = userdata_template.format(run_strings=run_string)
+        userdata = userdata_template.format(
+            run_strings=run_string,
+            s3_path=args.s3_path,
+            run_version=args.run_version
+        )
         try:
             response = ec2.run_instances(
                 LaunchTemplate={"LaunchTemplateName": "SeqDesignTrain"},
                 InstanceType=args.instance_type,
                 UserData=userdata,
-                TagSpecifications=[{"ResourceType": "instance", "Tags": [{"Key": "Name", "Value": name}]}],
+                TagSpecifications=[
+                    {"ResourceType": "instance", "Tags": [{"Key": "Name", "Value": name}]},
+                    {"ResourceType": "volume", "Tags": [{"Key": "Name", "Value": name}]},
+                ],
                 InstanceInitiatedShutdownBehavior="terminate",
                 MinCount=1,
                 MaxCount=1,
