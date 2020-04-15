@@ -46,7 +46,7 @@ tmux send -t calc.0 './run.sh' ENTER
 
 if __name__ == "__main__":
     sys.path.append(seqdesign_path)
-    import aws_utils
+    from seqdesign import aws_utils
 
     parser = argparse.ArgumentParser(description="Calculate the log probability of mutated sequences.")
     parser.add_argument('script', type=str, nargs='+', default=[], help="Script(s) to schedule on new instances")
