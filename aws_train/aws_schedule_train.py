@@ -55,6 +55,7 @@ if __name__ == "__main__":
     parser.add_argument("--instance-type", type=str, default='p2.xlarge', metavar='TYPE',
                         help="AWS instance type (e.g. p2.xlarge)")
     parser.add_argument("--split-lines", action='store_true', help="Run every line in a separate instance")
+    parser.add_argument("--alarm", action='store_true', help="Add a minimum CPU utilization alarm")
     parser.add_argument("--dry-run", action='store_true', help="Perform a dry run")
     parser.add_argument("--s3-path", type=str, default='s3://markslab-private/seqdesign',
                         help="Base s3:// SeqDesign path")
