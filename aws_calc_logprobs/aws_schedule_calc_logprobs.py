@@ -2,6 +2,7 @@
 import sys
 import time
 import boto3
+import botocore.exceptions
 import argparse
 
 CONDA_ENV = "tensorflow_p36"
@@ -98,6 +99,7 @@ if __name__ == "__main__":
         names, run_strings = new_names, new_strings
 
     ec2 = boto3.client('ec2', region_name=AWS_REGION)
+    cw = boto3.client('cloudwatch', region_name=AWS_REGION)
     for name, run_string in zip(names, run_strings):
         print(f"Launching instance {name} with commands:")
         print(run_string)
@@ -125,7 +127,40 @@ if __name__ == "__main__":
                 MaxCount=1,
                 DryRun=args.dry_run,
             )
+            if args.alarm and not args.dry_run:
+                instance_id = response['Instances'][0]['InstanceId']
+                try:
+                    response2 = ec2.describe_instance_types(InstanceTypes=[args.instance_type])
+                    core_count = response2['InstanceTypes'][0]['VCpuInfo']['DefaultVCpus']
+                except (IndexError, KeyError, botocore.exceptions.BotoCoreError) as e:
+                    print(e)
+                    if args.instance_type == 'p2.xlarge':
+                        core_count = 4
+                    else:
+                        core_count = 8
+                    print(f"Using core count: {core_count}")
+                threshold = round(1 / core_count * 100, 2)
+                response3 = cw.put_metric_alarm(
+                    AlarmName=name+'_min_cpu_util',
+                    MetricName='CPUUtilization',
+                    Namespace='AWS/EC2',
+                    Period=300,
+                    Statistic='Average',
+                    EvaluationPeriods=2,
+                    DatapointsToAlarm=2,
+                    ComparisonOperator='LessThanThreshold',
+                    Threshold=threshold,
+                    TreatMissingData='missing',
+                    ActionsEnabled=False,
+                    AlarmDescription=f'Alarm when server CPU is below {threshold}% for 10 minutes',
+                    Dimensions=[
+                        {
+                            'Name': 'InstanceId',
+                            'Value': instance_id,
+                        },
+                    ],
+                )
+            print("Launched.")
         except Exception as e:
             print(e)
-        print("Launched.")
     print("Done.")
