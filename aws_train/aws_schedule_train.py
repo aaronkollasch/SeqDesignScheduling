@@ -8,7 +8,6 @@ import argparse
 CONDA_ENV = "tensorflow_p36"
 USERNAME = "ubuntu"
 SEQDESIGN_FOLDER = "SeqDesign"
-TRAIN_EXE = "run_autoregressive_fr"
 AWS_REGION = 'us-west-2'
 POWEROFF_TIME = 5  # number of minutes to wait after completion before terminating the instance
 
@@ -104,7 +103,7 @@ if __name__ == "__main__":
         print(f"Launching instance {name} with commands:")
         print(run_string)
         run_string = '\n'.join([
-            f"{TRAIN_EXE} {line.strip()} --s3-path {args.s3_path} || EXIT_STATUS=$?"
+            f"{line.strip()} --s3-path {args.s3_path} || EXIT_STATUS=$?"
             for line in run_string.splitlines(keepends=False)
             if line.strip()
         ])
