@@ -21,7 +21,7 @@ git clone -b v3 https://github.com/debbiemarkslab/SeqDesign.git {seqdesign_path}
 {env_bin_path}/pip install gitpython
 cd {seqdesign_path}
 {env_bin_path}/python setup.py install
-mkdir -p {seqdesign_run_path}
+mkdir -p {seqdesign_run_path}/log/
 '
 cd {seqdesign_run_path}
 echo '#!/bin/bash

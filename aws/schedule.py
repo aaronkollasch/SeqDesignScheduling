@@ -21,7 +21,7 @@ git clone -b v3 https://github.com/debbiemarkslab/SeqDesign.git {seqdesign_path}
 {env_bin_path}/pip install gitpython
 cd {seqdesign_path}
 {env_bin_path}/python setup.py install
-mkdir -p {seqdesign_run_path}
+mkdir -p {seqdesign_run_path}/sess/
 '
 cd {seqdesign_run_path}
 echo '#!/bin/bash
@@ -39,9 +39,9 @@ sleep {POWEROFF_TIME * 60} && sudo poweroff
 chown {USERNAME}:{USERNAME} run.sh
 chmod +x run.sh
 su - {USERNAME} -c "cd {seqdesign_run_path}
-tmux new-session -s train -d -n 'train' 'bash'
-tmux pipe-pane -o 'cat >> {seqdesign_run_path}/sess/tmux-output.#h.txt'
-tmux send -t train.0 './run.sh' ENTER
+tmux new-session -s run -d -n 'run' 'bash'
+tmux pipe-pane -o -t run.0 'cat >> {seqdesign_run_path}/sess/tmux-output.#h.txt'
+tmux send -t run.0 './run.sh' ENTER
 "
 """
 
