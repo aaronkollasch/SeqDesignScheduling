@@ -12,11 +12,12 @@ parser.add_argument("--gpu-type", type=str, default=None, metavar='TYPE',
 parser.add_argument("--dry-run", action='store_true', help="Perform a dry run")
 parser.add_argument("--s3-path", type=str, default='s3://markslab-private/seqdesign',
                     help="Base s3:// SeqDesign path")
-parser.add_argument("--run-version", type=str, default='v3', metavar='V',
-                    help="Current run version (e.g. v2, v3, etc.).")
+parser.add_argument("--s3-project", type=str, default='v3', metavar='V',
+                    help="Project name (subfolder of s3-path).")
 args = parser.parse_args()
 
-seqdesign_path = f"/n/groups/marks/projects/autoregressive/{args.run_version}"
+seqdesign_path = f"/n/groups/marks/projects/seqdesign/{args.s3_project}"
+
 env_bin_path = f"/n/groups/marks/users/aaron/anaconda3/envs/tensorflow_gpuenv/bin"
 sbatch_template = f"""#!/bin/bash
 #SBATCH -c 2
@@ -53,6 +54,7 @@ else:
                 names.append(f'{name}_{i}')
                 param_strings.append(line)
 
+os.makedirs(seqdesign_path, exist_ok=True)
 os.makedirs('sbatch', exist_ok=True)
 for name, param_string in zip(names, param_strings):
     print(f"sbatch run {name} with params {param_string}")

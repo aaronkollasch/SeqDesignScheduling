@@ -31,7 +31,7 @@ EXIT_STATUS=0
 {{run_strings}}
 if [ $EXIT_STATUS -ne 0 ]; then
     echo "Error detected. Syncing all logs to S3."
-    aws s3 sync {seqdesign_run_path}/log/ {{s3_path}}/{{run_version}}/log/_failed_jobs/
+    aws s3 sync {seqdesign_run_path}/log/ {{s3_path}}/{{s3_project}}/log/_failed_jobs/
 fi
 echo "Shutting down in {POWEROFF_TIME} minutes, press Ctrl-C to interrupt."
 sleep {POWEROFF_TIME * 60} && sudo poweroff
@@ -58,11 +58,11 @@ if __name__ == "__main__":
     parser.add_argument("--dry-run", action='store_true', help="Perform a dry run")
     parser.add_argument("--s3-path", type=str, default='s3://markslab-private/seqdesign',
                         help="Base s3:// SeqDesign path")
-    parser.add_argument("--run-version", type=str, default='v3', metavar='V',
-                        help="Current run version (e.g. v2, v3, etc.).")
+    parser.add_argument("--s3-project", type=str, default='v3', metavar='V',
+                        help="Project name (subfolder of s3-path).")
     args = parser.parse_args()
 
-    aws_util = aws_utils.AWSUtility(s3_base_path=args.s3_path)
+    aws_util = aws_utils.AWSUtility(s3_project=args.s3_project, s3_base_path=args.s3_path)
     aws_util.s3_sync(
         local_folder=f"{home_path}/SeqDesignScheduling/aws_calc_logprobs/",
         s3_folder="scheduling/aws_calc_logprobs/",
@@ -73,8 +73,8 @@ if __name__ == "__main__":
     if args.script is None:
         names = ["test_scheduler"]
         run_strings = [
-            "--sess test_BLAT_ECOLX_1_v3_channels-8_rseed-11_20Mar11_1017PM "
-            "--channels 8 --r-seed 11 --num-iterations 102 --snapshot-interval 50 "
+            ("calc_logprobs_seqs_fr --sess test_BLAT_ECOLX_1_v3_channels-8_rseed-11_20Mar11_1017PM "
+             "--channels 8 --r-seed 11 --num-iterations 102 --snapshot-interval 50 "),
         ]
         print("Usage: aws_schedule_calc_logprobs.py [script1] [script2] ...")
         print("Running test in 5 seconds (Press Ctrl-C to cancel).")
@@ -111,7 +111,7 @@ if __name__ == "__main__":
         userdata = userdata_template.format(
             run_strings=run_string,
             s3_path=args.s3_path,
-            run_version=args.run_version
+            s3_project=args.s3_project
         )
         try:
             response = ec2.run_instances(
