@@ -1,0 +1,3 @@
+run_autoregressive_fr --dataset dataset_here --channels 48 --r-seed 11
+run_autoregressive_fr --dataset dataset_here --channels 48 --r-seed 22
+run_autoregressive_fr --dataset dataset_here --channels 48 --r-seed 33

@@ -1,0 +1,1 @@
+generate_sample_seqs_fr --sess sess_here --checkpoint 250000 --r-seed 1 --num-batches 10000
