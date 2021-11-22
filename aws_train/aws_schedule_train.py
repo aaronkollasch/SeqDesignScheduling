@@ -104,7 +104,7 @@ if __name__ == "__main__":
         print(f"Launching instance {name} with commands:")
         print(run_string)
         run_string = '\n'.join([
-            f"{line.strip()} --s3-path {args.s3_path} || EXIT_STATUS=$?"
+            f"{line.strip()} --s3-path {args.s3_path} --s3-project {args.s3_project} || EXIT_STATUS=$?"
             for line in run_string.splitlines(keepends=False)
             if line.strip()
         ])
