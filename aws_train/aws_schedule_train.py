@@ -56,6 +56,7 @@ if __name__ == "__main__":
     parser.add_argument("--split-lines", action='store_true', help="Run every line in a separate instance")
     parser.add_argument("--alarm", action='store_true', help="Add a minimum CPU utilization alarm")
     parser.add_argument("--dry-run", action='store_true', help="Perform a dry run")
+    parser.add_argument("--spot", action='store_true', help="Request a spot instance")
     parser.add_argument("--s3-path", type=str, default='s3://markslab-private/seqdesign',
                         help="Base s3:// SeqDesign path")
     parser.add_argument("--s3-project", type=str, default='v3', metavar='V',
@@ -101,7 +102,7 @@ if __name__ == "__main__":
     ec2 = boto3.client('ec2', region_name=AWS_REGION)
     cw = boto3.client('cloudwatch', region_name=AWS_REGION)
     for name, run_string in zip(names, run_strings):
-        print(f"Launching instance {name} with commands:")
+        print(f"Launching {'spot' if args.spot else 'on-demand'} instance {name} with commands:")
         print(run_string)
         run_string = '\n'.join([
             f"{line.strip()} --s3-path {args.s3_path} --s3-project {args.s3_project} || EXIT_STATUS=$?"
@@ -114,7 +115,7 @@ if __name__ == "__main__":
             s3_project=args.s3_project
         )
         try:
-            response = ec2.run_instances(
+            instance_options = dict(
                 LaunchTemplate={"LaunchTemplateName": "SeqDesignTrain"},
                 InstanceType=args.instance_type,
                 UserData=userdata,
@@ -127,6 +128,15 @@ if __name__ == "__main__":
                 MaxCount=1,
                 DryRun=args.dry_run,
             )
+            if args.spot:
+                instance_options["InstanceMarketOptions"] = {
+                    'MarketType': 'spot',
+                    'SpotOptions': {
+                        'SpotInstanceType': 'one-time',
+                        'InstanceInterruptionBehavior': 'terminate',
+                    }
+                }
+            response = ec2.run_instances(**instance_options)
             if args.alarm and not args.dry_run:
                 instance_id = response['Instances'][0]['InstanceId']
                 try:
